@@ -1,50 +1,138 @@
-# Remix IDE Blank Template
+# Chainlink Automation Examples
 
-Welcome to your new **Remix IDE Blank Workspace**!
+## Overview
+This repository demonstrates three types of Chainlink Automation patterns:
 
-This workspace has been generated using the "Blank Template" option in Remix IDE. It starts with only minimal configuration files, giving you full control to build your project from scratch.
+- **Time-Based Trigger**: Executes logic at fixed time intervals  
+- **Custom Logic Trigger**: Executes logic based on on-chain conditions  
+- **Log Trigger (Event-Based)**: Executes logic when a specific event is emitted  
 
----
-
-## What's Included?
-
-- **`remix.config.json`**: Default Remix IDE workspace configuration.
-- **`.prettierrc.json`**: Basic Prettier formatting rules for code consistency.
-
-No contract files, folders, or sample code are included.
+These examples illustrate how to automate smart contract execution without manual intervention.
 
 ---
 
-## Getting Started
+## Contracts
 
-1. **Create Files & Folders**
+### 1. TimeBased
 
-   - Add new Solidity files, scripts, or folders as needed for your project.
-   - You can organize your workspace structure in any way you like.
+A simple contract used for time-based automation.
 
-2. **Setup Project Settings** (Optional)
+**Functionality:**
+- Maintains a `counter`
+- Provides a `count()` function to increment the counter
 
-   - Modify `remix.config.json` or add additional configuration files as your project grows.
-
-3. **Write & Compile Smart Contracts**
-
-   - Use the **Solidity Compiler** and **Deploy & Run Transactions** plugins (available in Remix IDE's left sidebar) to develop and test your contracts.
-
-4. **(Optional) Initialize Git**
-
-   - If you checked "Initialize as a Git repository" during workspace creation, you can start committing your code immediately.
+**Usage:**
+- Chainlink Automation can be configured to call `count()` at fixed intervals
 
 ---
 
-## Useful Resources
+### 2. CustomLogic
 
-- [Remix IDE Documentation](https://remix-ide.readthedocs.io/)
-- [Solidity Language Documentation](https://docs.soliditylang.org/)
-- [Remix IDE Community Forum](https://forum.remix.ethereum.org/)
+A contract implementing condition-based automation using `AutomationCompatibleInterface`.
+
+**Key Features:**
+- Executes logic only when a time interval has passed
+- Uses `checkUpkeep` to determine if execution is needed
+- Uses `performUpkeep` to perform the action
+
+**State Variables:**
+- `counter`: Tracks number of executions  
+- `i_updateInterval`: Time interval between executions  
+- `lastTimeStamp`: Last execution timestamp  
+
+**Workflow:**
+1. `checkUpkeep()` checks if `(block.timestamp - lastTimeStamp) > i_updateInterval`
+2. If true → returns `upkeepNeeded = true`
+3. Chainlink Automation calls `performUpkeep()`
+4. Counter increments and timestamp updates
 
 ---
 
-Happy coding! 🚀 
+### 3. EventEmitter (Log Producer)
 
-_Remix IDE Team_
+A helper contract that emits logs for log-trigger automation.
 
+**Event:**
+- `WantsToCount(address indexed msgSender)`
+
+**Function:**
+- `emitCountLog()` emits the event
+
+---
+
+### 4. LogTrigger
+
+A contract implementing log-based automation using `ILogAutomation`.
+
+**Key Features:**
+- Reacts to emitted logs (events)
+- Decodes event data and performs logic
+
+**State Variables:**
+- `counted`: Number of times upkeep executed
+
+**Workflow:**
+1. `EventEmitter` emits `WantsToCount`
+2. Chainlink Automation detects the log
+3. `checkLog()` is triggered:
+   - Always returns `true`
+   - Extracts `msgSender` from log topics
+4. `performUpkeep()`:
+   - Increments `counted`
+   - Emits `CountedBy` event
+
+---
+
+## Automation Types Summary
+
+| Type            | Trigger Condition                  | Example Contract |
+|-----------------|----------------------------------|------------------|
+| Time-Based      | Fixed interval                    | TimeBased        |
+| Custom Logic    | On-chain condition (timestamp)    | CustomLogic      |
+| Log Trigger     | Smart contract event (logs)       | LogTrigger       |
+
+---
+
+## Deployment Steps
+
+1. Deploy contracts:
+   - `TimeBased`
+   - `CustomLogic` (with interval parameter)
+   - `EventEmitter`
+   - `LogTrigger`
+
+2. Register upkeep on Chainlink Automation:
+   - Select appropriate trigger type:
+     - Time-based → call `count()`
+     - Custom logic → use `checkUpkeep` / `performUpkeep`
+     - Log trigger → connect `EventEmitter` logs to `LogTrigger`
+
+---
+
+## Example Use Cases
+
+- Scheduled tasks (cron-like jobs)
+- Automated rebalancing or state updates
+- Event-driven workflows
+- Off-chain automation triggers
+
+---
+
+## Tech Stack
+
+- Solidity ^0.8.26
+- Chainlink Automation (Keepers)
+
+---
+
+## Notes
+
+- Ensure sufficient LINK balance for upkeep execution
+- Gas limits must be configured correctly during upkeep registration
+- Log trigger requires correct event signature and topic filtering
+
+---
+
+## License
+
+MIT
