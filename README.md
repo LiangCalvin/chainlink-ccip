@@ -1,138 +1,352 @@
-# Chainlink Automation Examples
+# Chainlink CCIP Cross-Chain Messaging and Token Transfer
 
-## Overview
-This repository demonstrates three types of Chainlink Automation patterns:
+A Solidity project for learning and experimenting with **Chainlink CCIP (Cross-Chain Interoperability Protocol)** using Remix.
 
-- **Time-Based Trigger**: Executes logic at fixed time intervals  
-- **Custom Logic Trigger**: Executes logic based on on-chain conditions  
-- **Log Trigger (Event-Based)**: Executes logic when a specific event is emitted  
+This repository covers:
 
-These examples illustrate how to automate smart contract execution without manual intervention.
+- CCIP Local Simulation
+- Cross-chain message passing
+- Cross-chain USDC token transfer
+- Cross-chain contract execution
+- Vault deposit via CCIP
 
----
-
-## Contracts
-
-### 1. TimeBased
-
-A simple contract used for time-based automation.
-
-**Functionality:**
-- Maintains a `counter`
-- Provides a `count()` function to increment the counter
-
-**Usage:**
-- Chainlink Automation can be configured to call `count()` at fixed intervals
+⚠️ This is a learning project based on tutorials and experimentation.  
+Example contracts contain hardcoded addresses and unaudited code.  
+Not intended for production use.
 
 ---
 
-### 2. CustomLogic
+# Architecture
 
-A contract implementing condition-based automation using `AutomationCompatibleInterface`.
+This project includes 3 layers of CCIP examples:
 
-**Key Features:**
-- Executes logic only when a time interval has passed
-- Uses `checkUpkeep` to determine if execution is needed
-- Uses `performUpkeep` to perform the action
+## 1. Local Simulation
 
-**State Variables:**
-- `counter`: Tracks number of executions  
-- `i_updateInterval`: Time interval between executions  
-- `lastTimeStamp`: Last execution timestamp  
+Uses Chainlink Local Simulator to test CCIP behavior locally.
 
-**Workflow:**
-1. `checkUpkeep()` checks if `(block.timestamp - lastTimeStamp) > i_updateInterval`
-2. If true → returns `upkeepNeeded = true`
-3. Chainlink Automation calls `performUpkeep()`
-4. Counter increments and timestamp updates
+- Simulated router
+- Simulated message routing
+- Local development environment
+
+Contracts:
+
+- `CCIPLocalSimulator.sol`
 
 ---
 
-### 3. EventEmitter (Log Producer)
+## 2. Basic Cross-Chain Messaging
 
-A helper contract that emits logs for log-trigger automation.
+Simple text message transfer between chains.
 
-**Event:**
-- `WantsToCount(address indexed msgSender)`
+Flow:
 
-**Function:**
-- `emitCountLog()` emits the event
+```text
+MessageSender
+   ↓
+CCIP Router
+   ↓
+MessageReceiver
+```
 
----
+Contracts:
 
-### 4. LogTrigger
+- `chainlink-local/MessageSender.sol`
+- `chainlink-local/MessageReceiver.sol`
 
-A contract implementing log-based automation using `ILogAutomation`.
+Features:
 
-**Key Features:**
-- Reacts to emitted logs (events)
-- Decodes event data and performs logic
-
-**State Variables:**
-- `counted`: Number of times upkeep executed
-
-**Workflow:**
-1. `EventEmitter` emits `WantsToCount`
-2. Chainlink Automation detects the log
-3. `checkLog()` is triggered:
-   - Always returns `true`
-   - Extracts `msgSender` from log topics
-4. `performUpkeep()`:
-   - Increments `counted`
-   - Emits `CountedBy` event
+- Send string payload ("Hey there!")
+- Pay CCIP fees in LINK
+- Receive and decode message
+- Store last received message
+- Emit send/receive events
 
 ---
 
-## Automation Types Summary
+## 3. Cross-Chain Token Transfer + Vault Execution
 
-| Type            | Trigger Condition                  | Example Contract |
-|-----------------|----------------------------------|------------------|
-| Time-Based      | Fixed interval                    | TimeBased        |
-| Custom Logic    | On-chain condition (timestamp)    | CustomLogic      |
-| Log Trigger     | Smart contract event (logs)       | LogTrigger       |
+Advanced example combining:
 
----
+- Cross-chain USDC transfer
+- Cross-chain contract call
+- Remote vault deposit
 
-## Deployment Steps
+Flow:
 
-1. Deploy contracts:
-   - `TimeBased`
-   - `CustomLogic` (with interval parameter)
-   - `EventEmitter`
-   - `LogTrigger`
+```text
+Ethereum Sepolia
 
-2. Register upkeep on Chainlink Automation:
-   - Select appropriate trigger type:
-     - Time-based → call `count()`
-     - Custom logic → use `checkUpkeep` / `performUpkeep`
-     - Log trigger → connect `EventEmitter` logs to `LogTrigger`
+Sender.sol
+   ↓
 
----
+CCIP Router
+   ↓
 
-## Example Use Cases
+Base Sepolia
 
-- Scheduled tasks (cron-like jobs)
-- Automated rebalancing or state updates
-- Event-driven workflows
-- Off-chain automation triggers
+Receiver.sol
+   ↓
+
+Vault.sol.deposit()
+```
 
 ---
 
-## Tech Stack
+# Contracts
 
-- Solidity ^0.8.26
-- Chainlink Automation (Keepers)
+## CCIPLocalSimulator.sol
+
+Imports and uses:
+
+- Chainlink CCIP Local Simulator
+
+Purpose:
+
+- Test CCIP locally
+- Simulate source/destination chains
 
 ---
 
-## Notes
+## CCIPTokenSender.sol
 
-- Ensure sufficient LINK balance for upkeep execution
-- Gas limits must be configured correctly during upkeep registration
-- Log trigger requires correct event signature and topic filtering
+Simple CCIP token transfer example.
+
+Features:
+
+- Sends USDC cross-chain
+- Pays fees in LINK
+- Uses `ccipSend()`
+- Emits `USDCTransferred`
+- Owner can withdraw tokens
+
+Hardcoded:
+
+- Sepolia Router
+- LINK Token
+- USDC Token
+- Base Sepolia destination selector
 
 ---
 
-## License
+## MessageSender.sol
+
+Basic CCIP message sender.
+
+Features:
+
+- Sends "Hey there!"
+- Builds EVM2AnyMessage
+- Calculates CCIP fees
+- Pays fees using LINK
+
+---
+
+## MessageReceiver.sol
+
+Basic CCIP receiver.
+
+Features:
+
+- Receives string message
+- Decodes payload
+- Stores last message
+- Emits `MessageReceived`
+
+---
+
+## Sender.sol
+
+Advanced cross-chain sender.
+
+Features:
+
+- Sends USDC cross-chain
+- Encodes Vault deposit call:
+
+```solidity
+deposit(address account, uint256 amount)
+```
+
+- Uses:
+
+```solidity
+abi.encodeWithSelector(
+IVault.deposit.selector,
+msg.sender,
+_amount
+)
+```
+
+- Transfers token + message together
+
+This demonstrates:
+
+- Programmable Token Transfer
+- Cross-chain contract execution
+
+---
+
+## Receiver.sol
+
+Advanced CCIP receiver.
+
+Features:
+
+- Receives tokens + calldata
+- Allowlists source sender
+- Decodes:
+
+```solidity
+(address target, bytes functionCallData)
+```
+
+Executes:
+
+```solidity
+target.call(functionCallData)
+```
+
+Triggers:
+
+```solidity
+Vault.deposit(...)
+```
+
+Security:
+
+- Source chain allowlist
+- Sender allowlist
+- Owner controls sender authorization
+
+---
+
+## Vault.sol
+
+Simple vault on Base Sepolia.
+
+Features:
+
+- Tracks balances
+
+```solidity
+mapping(address => uint256) balances
+```
+
+- Deposit USDC
+- Withdraw USDC
+
+Used as target contract for cross-chain deposit execution.
+
+---
+
+## IVault.sol
+
+Interface used by Sender.
+
+Functions:
+
+```solidity
+deposit(address,uint256)
+withdraw(uint256)
+```
+
+---
+
+# Network Setup
+
+Source Chain:
+
+- Ethereum Sepolia
+
+Destination Chain:
+
+- Base Sepolia
+
+Assets:
+
+- LINK (CCIP Fees)
+- USDC (Cross-chain token transfer)
+
+---
+
+# Project Structure
+
+```bash
+contracts/
+│
+├── CCIPLocalSimulator.sol
+├── CCIPTokenSender.sol
+│
+├── chainlink-local/
+│   ├── MessageSender.sol
+│   └── MessageReceiver.sol
+│
+├── interfaces/
+│   └── IVault.sol
+│
+├── Sender.sol
+├── Receiver.sol
+└── Vault.sol
+```
+
+---
+
+# Concepts Covered
+
+This project explores:
+
+- CCIP Messaging
+
+- EVM2AnyMessage
+
+- Any2EVMMessage
+
+- Chain Selectors
+
+- CCIP Fee Estimation
+
+- Programmable Token Transfer
+
+- Cross-Chain Contract Calls
+
+- Allowlisting Source Chains and Senders
+
+---
+
+# Technologies
+
+- Solidity 0.8.26
+
+- Chainlink CCIP
+
+- Chainlink Local
+
+- OpenZeppelin
+
+- Remix IDE
+
+---
+
+# References
+
+Chainlink CCIP Docs
+
+https://docs.chain.link/ccip
+
+Chainlink CCIP Directory
+
+https://docs.chain.link/ccip/directory
+
+Chainlink Local
+
+https://docs.chain.link/chainlink-local
+
+Remix
+
+https://remix.ethereum.org
+
+---
+
+# License
 
 MIT
